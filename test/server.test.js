@@ -44,7 +44,6 @@ describe('Basic Express setup', () => {
 	});
 
 	describe('404 handler', () => {
-
 		it('should respond with 404 when given a bad path', () => {
 			return chai.request(app)
 				.get('/bad/path')
@@ -53,6 +52,5 @@ describe('Basic Express setup', () => {
 					expect(res).to.have.status(404);
 				});
 		});
-
 	});
 });

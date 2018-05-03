@@ -9,13 +9,14 @@ const { Note } = require('../models/note');
 
 /* ========== GET/READ ALL ITEM ========== */
 router.get('/', (req, res, next) => {
-	const {searchTerm} = req.query;
+	const { searchTerm } = req.query;
 	let filter = {};
 
 	if (searchTerm) {
 		const re = new RegExp(searchTerm, 'i');
 		filter.$or = [{'title':{ $regex: re }},{'content':{ $regex: re }}];
 	}
+
 	Note.find(filter)
 		.sort('created')
 		.then(results => {
@@ -27,14 +28,21 @@ router.get('/', (req, res, next) => {
 /* ========== GET/READ A SINGLE ITEM ========== */
 router.get('/:id', (req, res, next) => {
 
-	const id = req.params.id;
+	const { id } = req.params;
+
+	if (!mongoose.Types.ObjectId.isValid(id)) {
+		const err = new Error('Invalid \':id\'');
+		err.status = 400;
+		return next(err);
+	}
 
 	Note.findById(id)
-		.then(results => {
-			res.json(results);
+		.then(result => {
+			if(result){
+				res.json(result);
+			}
 		})
 		.catch(err => next(err));
-
 });
 
 /* ========== POST/CREATE AN ITEM ========== */
@@ -65,26 +73,25 @@ router.post('/', (req, res, next) => {
 /* ========== PUT/UPDATE A SINGLE ITEM ========== */
 router.put('/:id', (req, res, next) => {
 
-	const id = req.params.id;
+	const { id } = req.params;
+	const { title, content } = req.body;
+
+	if (!mongoose.Types.ObjectId.isValid(id)) {
+		const err = new Error('Invalid \':id\'');
+		err.status = 400;
+		return next(err);
+	}
 
 	/***** Never trust users - validate input *****/
-	const updateObj = {};
-	const updateableFields = ['title', 'content'];
-
-	updateableFields.forEach(field => {
-		if (field in req.body) {
-			updateObj[field] = req.body[field];
-		}
-	});
-
-	/***** Never trust users - validate input *****/
-	if (!updateObj.title) {
+	if (!title) {
 		const err = new Error('Missing `title` in request body');
 		err.status = 400;
 		return next(err);
 	}
 
-	Note.findByIdAndUpdate(id, updateObj, {new:true})
+	const updateItem = {title, content};
+
+	Note.findByIdAndUpdate(id, updateItem, {new:true})
 		.then(result => {
 			res.json(result);
 		})
@@ -94,7 +101,13 @@ router.put('/:id', (req, res, next) => {
 /* ========== DELETE/REMOVE A SINGLE ITEM ========== */
 router.delete('/:id', (req, res, next) => {
 
-	const id = req.params.id;
+	const { id } = req.params;
+
+	if (!mongoose.Types.ObjectId.isValid(id)) {
+		const err = new Error('Invalid \':id\'');
+		err.status = 400;
+		return next(err);
+	}
 
 	Note.findByIdAndRemove(id)
 		.then( () => {
