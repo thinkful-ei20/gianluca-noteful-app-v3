@@ -12,9 +12,9 @@ const seedNotes = require('../db/seed/notes');
 const expect = chai.expect;
 chai.use(chaiHttp);
 
-describe('Restaurants API resource', function() {
+describe('Notes API resource', function() {
 
-	this.timeout(5000);
+	this.timeout(5000); //need this for comparing lengths
 
 	before(function () {
 		return mongoose.connect(TEST_MONGODB_URI)
@@ -37,14 +37,16 @@ describe('Restaurants API resource', function() {
 	describe('GET /api/notes', function () {
 		it('should return the correct number of notes', function() {
 			return Promise.all([
-				Note.find(),
+				//Note.find(), // returns the entire collection
+				Note.count(), // returns the size of the collection
 				chai.request(app).get('/api/notes')
 			])
 				.then(([data, res]) => {
 					expect(res).to.have.status(200);
 					expect(res).to.be.json;
 					expect(res.body).to.be.a('array');
-					expect(res.body).to.have.length(data.length);
+					//expect(res.body).to.have.length(data.length); // compare the length of the actual collection to the length of the response
+					expect(res.body).to.have.length(data); // compare the "size" of the collection to the length of the response
 				});
 		});
 
@@ -102,7 +104,7 @@ describe('Restaurants API resource', function() {
 					expect(res).to.be.json;
 
 					expect(res.body).to.be.an('object');
-					expect(res.body).to.have.keys('id', 'title', 'content', 'createdAt', 'updatedAt');
+					expect(res.body).to.have.keys('id', 'title', 'folderId', 'content', 'createdAt', 'updatedAt');
 
 					expect(res.body.id).to.equal(data.id);
 					expect(res.body.title).to.equal(data.title);
