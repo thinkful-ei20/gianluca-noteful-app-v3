@@ -51,7 +51,7 @@ router.get('/:id', (req, res, next) => {
 router.post('/', (req, res, next) => {
 
 	/***** Never trust users - validate input *****/
-	const { title, content } = req.body;
+	const { title, content, folderId } = req.body;
 
 	/***** Never trust users - validate input *****/
 	if (!title) {
@@ -60,10 +60,13 @@ router.post('/', (req, res, next) => {
 		return next(err);
 	}
 
-	const newItem = {
-		title: title,
-		content: content,
-	};
+	if (folderId && !mongoose.Types.ObjectId.isValid(folderId)) {
+		const err = new Error('Invalid `folder` \':id\'');
+		err.status = 400;
+		return next(err);
+	}
+
+	const newItem = { title, content, folderId };
 
 	Note.create(newItem)
 		.then(result => {
@@ -76,13 +79,7 @@ router.post('/', (req, res, next) => {
 router.put('/:id', (req, res, next) => {
 
 	const { id } = req.params;
-	const { title, content } = req.body;
-
-	if (!mongoose.Types.ObjectId.isValid(id)) {
-		const err = new Error('Invalid \':id\'');
-		err.status = 400;
-		return next(err);
-	}
+	const { title, content, folderId } = req.body;
 
 	/***** Never trust users - validate input *****/
 	if (!title) {
@@ -91,7 +88,19 @@ router.put('/:id', (req, res, next) => {
 		return next(err);
 	}
 
-	const updateItem = {title, content};
+	if (!mongoose.Types.ObjectId.isValid(id)) {
+		const err = new Error('Invalid \':id\'');
+		err.status = 400;
+		return next(err);
+	}
+
+	if (folderId && !mongoose.Types.ObjectId.isValid(folderId)) {
+		const err = new Error('Invalid `folder` \':id\'');
+		err.status = 400;
+		return next(err);
+	}
+
+	const updateItem = {title, content, folderId};
 
 	Note.findByIdAndUpdate(id, updateItem, {new:true})
 		.then(result => {

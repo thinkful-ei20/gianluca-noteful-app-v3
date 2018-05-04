@@ -281,8 +281,8 @@ describe('Folders API resource', function() {
 					expect(res).to.have.status(204);
 					return Note.find({folderId: data.id}).count();
 				})
-				.then(result => {
-					expect(result).to.be.equal(0);
+				.then(count => {
+					expect(count).to.be.equal(0);
 				});
 		});
 
