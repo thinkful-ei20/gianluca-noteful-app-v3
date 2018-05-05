@@ -1,3 +1,4 @@
+require('dotenv').config();
 const mongoose = require('mongoose');
 
 const { MONGODB_URI } = require('../config');
@@ -10,9 +11,12 @@ const { Tag } = require('../models/tag');
 const seedFolders = require('../db/seed/folders');
 const seedTags = require('../db/seed/tags');
 const seedNotes = require('../db/seed/notes');
+const seedTags = require('../db/seed/tags');
 
 mongoose.connect(MONGODB_URI)
-	.then(() => mongoose.connection.db.dropDatabase())
+	.then(() => {
+		mongoose.connection.db.dropDatabase();
+	})
 	.then(() => {
 		return Promise.all([
 			Note.insertMany(seedNotes),

@@ -1,10 +1,11 @@
 
+require('dotenv').config();
 const  chai = require('chai');
 const chaiHttp = require('chai-http');
 const mongoose = require('mongoose');
 
-const app = require('../server');
 const { TEST_MONGODB_URI } = require('../config');
+const app = require('../server');
 
 const { Folder } = require('../models/folder');
 const { Note } = require('../models/note');
@@ -16,8 +17,6 @@ const expect = chai.expect;
 chai.use(chaiHttp);
 
 describe('Folders API resource', function() {
-
-	this.timeout(5000); //need this for comparing lengths
 
 	before(function () {
 		return mongoose.connect(TEST_MONGODB_URI)
@@ -38,9 +37,10 @@ describe('Folders API resource', function() {
 	});
 
 	describe('GET /api/folders', function () {
-		it('should return the correct number of folders and fields', function() {
+
+		it('should return the correct number of folders and fields, sorted by `name`', function() {
 			return Promise.all([
-				Folder.find(), // returns the size of the collection
+				Folder.find().sort('name'), // returns the size of the collection
 				chai.request(app).get('/api/folders')
 			])
 				.then(([data, res]) => {
@@ -78,6 +78,7 @@ describe('Folders API resource', function() {
 		});
 
 		it('should return an empty array for an invalid query', function () {
+
 			const searchTerm = '%asd57157d1';
 			const re = new RegExp(searchTerm, 'i');
 			const filter = {'name':{ $regex: re }};
@@ -96,6 +97,7 @@ describe('Folders API resource', function() {
 	});
 
 	describe('GET /api/folders/:id', function () {
+
 		it('should return correct folder', function () {
 
 			let data;
@@ -127,7 +129,9 @@ describe('Folders API resource', function() {
 		});
 
 		it('should respond with 404 for non-existant \'id\'', function () {
+
 			const id = '999999999999999999999999';
+
 			return chai.request(app)
 				.get(`/api/folders/${id}`)
 				.then(res => {
@@ -138,12 +142,14 @@ describe('Folders API resource', function() {
 	});
 
 	describe('POST /api/folders', function () {
+
 		it('should create and return a new folder when provided valid data', function () {
+
 			const newItem = {
 				'name': 'This is a good POST request',
 			};
-
 			let res;
+
 			return chai.request(app)
 				.post('/api/folders')
 				.send(newItem)
@@ -162,6 +168,7 @@ describe('Folders API resource', function() {
 		});
 
 		it('should return 400 status if \'name\' is not in the request body', function() {
+
 			const newItem = {
 				'not_a_name': 'I\'m a bad POST Request!'
 			};
@@ -178,12 +185,15 @@ describe('Folders API resource', function() {
 		});
 
 		it('should return 400 if folder name already exists', function() {
+
 			return chai.request(app)
 				.get('/api/folders')
 				.then(data => {
+
 					const newItem = {
 						name: data.body[0].name
 					};
+
 					return chai.request(app)
 						.post('/api/folders')
 						.send(newItem);
@@ -198,11 +208,14 @@ describe('Folders API resource', function() {
 	});
 
 	describe('PUT /api/folders/:id', function () {
+
 		it('should return the updated folder when provided valid data', function () {
+
 			const updateItem = {
 				'name': 'I\'m a good put Request!',
 			};
 			let oldData;
+
 			return Folder.findOne({})
 				.then(_data => {
 					oldData = _data;
@@ -233,6 +246,7 @@ describe('Folders API resource', function() {
 		});
 
 		it('should respond 400 status if \'name\' is not in the request body', function() {
+
 			const updateItem = {
 				'nothing': 'no name'
 			};
@@ -252,7 +266,9 @@ describe('Folders API resource', function() {
 		});
 
 		it('should respond with 404 for non-existant \'id\'', function () {
+
 			const id = '999999999999999999999999';
+
 			return chai.request(app)
 				.get(`/api/folders/${id}`)
 				.then(res => {
@@ -265,12 +281,13 @@ describe('Folders API resource', function() {
 	describe('DELETE /api/folders/:id', function() {
 
 		before(function () {
-			return Note.insertMany(seedNotes)
-				.then(() => Note.createIndexes());
+			return Note.insertMany(seedNotes);
 		});
 
-		it('should respond 204 when \':id\' is deleted and set folder references to `null`', function() {
+		it('should respond 204 when a folder at \':id\' is deleted and set that folders references to `null`', function() {
+
 			let data;
+
 			return Folder.findOne({})
 				.then(_data => {
 					data = _data;
@@ -287,6 +304,7 @@ describe('Folders API resource', function() {
 		});
 
 		it('should respond with 400 for invalid \'id\'', function () {
+
 			return chai.request(app)
 				.delete('/api/folders/thisaintvalid')
 				.then(res => {
@@ -295,7 +313,9 @@ describe('Folders API resource', function() {
 		});
 
 		it('should respond with 404 for non-existant \'id\'', function () {
+
 			const id = '999999999999999999999999';
+
 			return chai.request(app)
 				.delete(`/api/folders/${id}`)
 				.then(res => {

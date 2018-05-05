@@ -1,5 +1,5 @@
 
-
+require('dotenv').config(); //Production
 const express = require('express');
 const morgan = require('morgan');
 const mongoose = require('mongoose');
@@ -27,7 +27,7 @@ app.use(express.json());
 // Mount routers
 app.use('/api/notes', notesRouter);
 app.use('/api/folders', foldersRouter);
-app.use('/api/tags', tagsRouter);
+app.use('/api/tags',tagsRouter);
 
 // Catch-all 404
 app.use(function (req, res, next) {

@@ -1,5 +1,4 @@
 
-
 const express = require('express');
 const mongoose = require('mongoose');
 const router = express.Router();
@@ -9,7 +8,7 @@ const { Note } = require('../models/note');
 
 /* ========== GET/READ ALL ITEM ========== */
 router.get('/', (req, res, next) => {
-	const { searchTerm } = req.query;
+	const { searchTerm, folderId, tagId } = req.query;
 	let filter = {};
 
 	if (searchTerm) {
@@ -17,10 +16,22 @@ router.get('/', (req, res, next) => {
 		filter.$or = [{'title':{ $regex: re }},{'content':{ $regex: re }}];
 	}
 
+	if (folderId) {
+		filter.folderId = folderId;
+	}
+
+	if (tagId) {
+		filter.tags = tagId;
+	}
+
 	Note.find(filter)
+		.populate('tags')
 		.sort('created')
 		.then(results => {
-			res.json(results);
+			if(results) {
+				res.json(results);
+			}
+			next();
 		})
 		.catch(err => next(err));
 });
@@ -37,23 +48,21 @@ router.get('/:id', (req, res, next) => {
 	}
 
 	Note.findById(id)
+		.populate('tags')
 		.then(result => {
 			if(result){
 				res.json(result);
-			} else {
-				next();
 			}
+			next();
 		})
-		.catch(err => next(err));
+		.catch(next);
 });
 
 /* ========== POST/CREATE AN ITEM ========== */
 router.post('/', (req, res, next) => {
 
-	/***** Never trust users - validate input *****/
-	const { title, content, folderId } = req.body;
+	const { title, content, folderId, tags = [] } = req.body;
 
-	/***** Never trust users - validate input *****/
 	if (!title) {
 		const err = new Error('Missing `title` in request body');
 		err.status = 400;
@@ -61,52 +70,77 @@ router.post('/', (req, res, next) => {
 	}
 
 	if (folderId && !mongoose.Types.ObjectId.isValid(folderId)) {
-		const err = new Error('Invalid `folder` \':id\'');
+		const err = new Error('The `folder id` is not valid');
 		err.status = 400;
 		return next(err);
 	}
 
-	const newItem = { title, content, folderId };
+	if (tags) {
+		tags.forEach((tag) => {
+			if (!mongoose.Types.ObjectId.isValid(tag)) {
+				const err = new Error('The `tag id` is not valid');
+				err.status = 400;
+				return next(err);
+			}
+		});
+	}
+
+	const newItem = {title, content, folderId, tags};
 
 	Note.create(newItem)
 		.then(result => {
-			res.location(`${req.originalUrl}/${result.id}`).status(201).json(result);
+			if(result) {
+				res.location(`${req.originalUrl}/${result.id}`).status(201).json(result);
+			}
+			next();
 		})
-		.catch(err => next(err));
+		.catch(next);
 });
 
 /* ========== PUT/UPDATE A SINGLE ITEM ========== */
 router.put('/:id', (req, res, next) => {
 
 	const { id } = req.params;
-	const { title, content, folderId } = req.body;
+	const { title, content, folderId, tags = [] } = req.body;
 
-	/***** Never trust users - validate input *****/
+	if (!mongoose.Types.ObjectId.isValid(id)) {
+		const err = new Error('Invalid `/:id`');
+		err.status = 400;
+		return next(err);
+	}
+
 	if (!title) {
 		const err = new Error('Missing `title` in request body');
 		err.status = 400;
 		return next(err);
 	}
 
-	if (!mongoose.Types.ObjectId.isValid(id)) {
-		const err = new Error('Invalid \':id\'');
-		err.status = 400;
-		return next(err);
-	}
-
 	if (folderId && !mongoose.Types.ObjectId.isValid(folderId)) {
-		const err = new Error('Invalid `folder` \':id\'');
+		const err = new Error('The `folder id` is not valid');
 		err.status = 400;
 		return next(err);
 	}
 
-	const updateItem = {title, content, folderId};
+	if (tags) {
+		tags.forEach((tag) => {
+			if (!mongoose.Types.ObjectId.isValid(tag)) {
+				const err = new Error('The `tag id` is not valid');
+				err.status = 400;
+				return next(err);
+			}
+		});
+	}
+
+	const updateItem = {title, content, folderId, tags};
 
 	Note.findByIdAndUpdate(id, updateItem, {new:true})
 		.then(result => {
-			res.json(result);
+			if(result) {
+				res.json(result);
+			}
+			next();
 		})
-		.catch(err => next(err));
+		.catch(next);
 });
 
 /* ========== DELETE/REMOVE A SINGLE ITEM ========== */
@@ -121,10 +155,13 @@ router.delete('/:id', (req, res, next) => {
 	}
 
 	Note.findByIdAndRemove(id)
-		.then( () => {
-			res.status(204).end();
+		.then( (result) => {
+			if(result) {
+				res.status(204).end();
+			}
+			next();
 		})
-		.catch(err => next(err));
+		.catch(next);
 
 });
 

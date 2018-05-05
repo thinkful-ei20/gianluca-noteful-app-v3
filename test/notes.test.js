@@ -1,10 +1,11 @@
 
+require('dotenv').config();
 const  chai = require('chai');
 const chaiHttp = require('chai-http');
 const mongoose = require('mongoose');
 
-const app = require('../server');
 const { TEST_MONGODB_URI } = require('../config');
+const app = require('../server');
 
 const { Note } = require('../models/note');
 const seedNotes = require('../db/seed/notes');
@@ -14,16 +15,13 @@ chai.use(chaiHttp);
 
 describe('Notes API resource', function() {
 
-	this.timeout(5000); //need this for comparing lengths
-
 	before(function () {
 		return mongoose.connect(TEST_MONGODB_URI)
 			.then(() => mongoose.connection.db.dropDatabase());
 	});
 
 	beforeEach(function () {
-		return Note.insertMany(seedNotes)
-			.then(() => Note.createIndexes());
+		return Note.insertMany(seedNotes);
 	});
 
 	afterEach(function () {
@@ -37,7 +35,6 @@ describe('Notes API resource', function() {
 	describe('GET /api/notes', function () {
 		it('should return the correct number of notes', function() {
 			return Promise.all([
-				//Note.find(), // returns the entire collection
 				Note.count(), // returns the size of the collection
 				chai.request(app).get('/api/notes')
 			])
@@ -45,7 +42,6 @@ describe('Notes API resource', function() {
 					expect(res).to.have.status(200);
 					expect(res).to.be.json;
 					expect(res.body).to.be.a('array');
-					//expect(res.body).to.have.length(data.length); // compare the length of the actual collection to the length of the response
 					expect(res.body).to.have.length(data); // compare the "size" of the collection to the length of the response
 				});
 		});
@@ -104,7 +100,7 @@ describe('Notes API resource', function() {
 					expect(res).to.be.json;
 
 					expect(res.body).to.be.an('object');
-					expect(res.body).to.have.keys('id', 'title', 'folderId', 'content', 'createdAt', 'updatedAt');
+					expect(res.body).to.have.keys('id', 'title', 'folderId', 'tags', 'content', 'createdAt', 'updatedAt');
 
 					expect(res.body.id).to.equal(data.id);
 					expect(res.body.title).to.equal(data.title);
@@ -140,7 +136,7 @@ describe('Notes API resource', function() {
 					expect(res).to.have.header('location');
 					expect(res).to.be.json;
 					expect(res.body).to.be.a('object');
-					expect(res.body).to.have.keys('id', 'title', 'content', 'createdAt', 'updatedAt');
+					expect(res.body).to.have.keys('id', 'title', 'tags', 'content', 'createdAt', 'updatedAt');
 					return Note.findById(res.body.id);
 				})
 				.then(data => {
@@ -172,19 +168,22 @@ describe('Notes API resource', function() {
 				'title': 'I\'m a good put Request!',
 				'content': 'Isn\'t that wonderful?'
 			};
-			let oldData;
+			let data;
 			return Note.findOne({})
 				.then(_data => {
-					oldData = _data;
+					data = _data;
 					return chai.request(app)
-						.put(`/api/notes/${oldData.id}`)
+						.put(`/api/notes/${_data.id}`)
 						.send(updateItem);
 				})
 				.then(res => {
 					expect(res).to.have.status(200);
 					expect(res).to.be.json;
 					expect(res.body).to.be.a('object');
-					expect(res.body.title).to.not.equal(oldData.title);
+					expect(res.body).to.have.keys('id', 'title', 'content', 'createdAt', 'updatedAt', 'folderId', 'tags');
+					expect(res.body.id).to.equal(data.id);
+					expect(res.body.title).to.equal(updateItem.title);
+					expect(res.body.content).to.equal(updateItem.content);
 				});
 		});
 
@@ -200,6 +199,7 @@ describe('Notes API resource', function() {
 				.send(updateItem)
 				.then(res => {
 					expect(res).to.have.status(400);
+					expect(res.body.message).to.equal('Invalid `/:id`');
 				});
 		});
 

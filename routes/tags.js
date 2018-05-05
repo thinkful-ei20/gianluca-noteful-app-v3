@@ -3,25 +3,25 @@ const express = require('express');
 const mongoose = require('mongoose');
 const router = express.Router();
 
-const { Folder } = require('../models/folder');
+const { Tag } = require('../models/tag');
 const { Note } = require('../models/note');
+
+// ENDPOINTS GO HERE
 
 /* ========== GET/READ ALL ITEM ========== */
 router.get('/', (req, res, next) => {
+
 	const { searchTerm } = req.query;
-	let filter = {};
+	const filter = searchTerm ? { name: {$regex : new RegExp(searchTerm, 'i')}} : {};
 
-	if (searchTerm) {
-		const re = new RegExp(searchTerm, 'i');
-		filter = {'name':{ $regex: re }};
-	}
-
-	Folder.find(filter)
-		.sort('name')
-		.then(results => {
-			res.json(results);
+	Tag.find(filter).sort('name')
+		.then((result) => {
+			if(result) {
+				res.json(result);
+			}
+			next();
 		})
-		.catch(err => next(err));
+		.catch(next);
 });
 
 /* ========== GET/READ A SINGLE ITEM ========== */
@@ -29,15 +29,15 @@ router.get('/:id', (req, res, next) => {
 
 	const { id } = req.params;
 
-	if (!mongoose.Types.ObjectId.isValid(id)) {
+	if( !mongoose.Types.ObjectId.isValid(id) ) {
 		const err = new Error('Invalid \':id\'');
 		err.status = 400;
-		return next(err);
+		next(err);
 	}
 
-	Folder.findById(id)
+	Tag.findById(id)
 		.then(result => {
-			if(result){
+			if(result) {
 				res.json(result);
 			}
 			next();
@@ -48,27 +48,25 @@ router.get('/:id', (req, res, next) => {
 /* ========== POST/CREATE AN ITEM ========== */
 router.post('/', (req, res, next) => {
 
-	/***** Never trust users - validate input *****/
 	const { name } = req.body;
 
-	/***** Never trust users - validate input *****/
-	if (!name) {
+	if(!name) {
 		const err = new Error('Missing `name` in request body');
 		err.status = 400;
-		return next(err);
+		next(err);
 	}
 
-	const newItem = {
-		name: name
-	};
+	const newItem = { name };
 
-	Folder.create(newItem)
+	Tag.create(newItem)
 		.then(result => {
-			res.location(`${req.originalUrl}/${result.id}`).status(201).json(result);
-		})
-		.catch(err => {
+			if(result) {
+				res.location(`${req.originalUrl}/${result.id}`).status(201).json(result);
+			}
+			next();
+		}).catch(err => {
 			if (err.code === 11000) {
-				err = new Error('The folder name already exists');
+				err = new Error(`The Tag 'name': ${name} already exists`);
 				err.status = 400;
 			}
 			next(err);
@@ -79,50 +77,55 @@ router.post('/', (req, res, next) => {
 router.put('/:id', (req, res, next) => {
 
 	const { id } = req.params;
-	const { name } = req.body;
+	const{ name } = req.body;
 
-	if (!mongoose.Types.ObjectId.isValid(id)) {
-		const err = new Error('Invalid \':id\'');
-		err.status = 400;
-		return next(err);
-	}
-
-	/***** Never trust users - validate input *****/
-	if (!name) {
+	if(!name) {
 		const err = new Error('Missing `name` in request body');
 		err.status = 400;
-		return next(err);
+		next(err);
 	}
 
-	const updateItem = {name};
+	if(!mongoose.Types.ObjectId.isValid(id)){
+		const err = new Error(`Invalid '/:id' : ${id}`);
+		err.status = 400;
+		next(err);
+	}
 
-	Folder.findByIdAndUpdate(id, updateItem, {new:true})
+	const updateItem = { name: name };
+
+	Tag.findByIdAndUpdate(id, updateItem, {new:true})
 		.then(result => {
 			if(result) {
 				res.json(result);
 			}
 			next();
-		})
-		.catch(next);
+		}).catch(err => {
+			if(err.code === 11000) {
+				err = new Error(`The Tag 'name': ${name} already exists`);
+				err.status = 400;
+			}
+			next(err);
+		});
 });
 
 /* ========== DELETE/REMOVE A SINGLE ITEM ========== */
+
 router.delete('/:id', (req, res, next) => {
 
 	const { id } = req.params;
 
-	if (!mongoose.Types.ObjectId.isValid(id)) {
-		const err = new Error('Invalid \':id\'');
+	if(!mongoose.Types.ObjectId.isValid(id)){
+		const err = new Error(`Invalid '/:id' : ${id}`);
 		err.status = 400;
-		return next(err);
+		next(err);
 	}
 
-	const filter = { folderId : id};
-	const action = { $unset: {folderId: null} };
+	//no filter because we are looking at all `notes` that reference the `tag`
+	const action = { $pull : { tags:{ _id: id } } };
 
-	Note.updateMany(filter, action)
+	Note.updateMany({}, action)
 		.then(() => {
-			return Folder.findByIdAndRemove(id);
+			return Tag.findByIdAndRemove(id);
 		})
 		.then( result => {
 			if(result) {
