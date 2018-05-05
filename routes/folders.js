@@ -39,11 +39,10 @@ router.get('/:id', (req, res, next) => {
 		.then(result => {
 			if(result){
 				res.json(result);
-			} else {
-				next();
 			}
+			next();
 		})
-		.catch(err => next(err));
+		.catch(next);
 });
 
 /* ========== POST/CREATE AN ITEM ========== */
@@ -101,11 +100,10 @@ router.put('/:id', (req, res, next) => {
 		.then(result => {
 			if(result) {
 				res.json(result);
-			} else {
-				next();
 			}
+			next();
 		})
-		.catch(err => next(err));
+		.catch(next);
 });
 
 /* ========== DELETE/REMOVE A SINGLE ITEM ========== */
@@ -119,18 +117,20 @@ router.delete('/:id', (req, res, next) => {
 		return next(err);
 	}
 
-	Note.updateMany({folderId : id},{$unset: {folderId: null}})
+	const filter = { folderId : id};
+	const action = { $unset: {folderId: null} };
+
+	Note.updateMany(filter, action)
 		.then(() => {
 			return Folder.findByIdAndRemove(id);
 		})
 		.then( result => {
 			if(result) {
 				res.status(204).end();
-			} else {
-				next();
 			}
+			next();
 		})
-		.catch(err => next(err));
+		.catch(next);
 });
 
 module.exports = router;

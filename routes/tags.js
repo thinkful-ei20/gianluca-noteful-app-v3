@@ -1,7 +1,7 @@
-const express = require('express');
-const router = express.Router();
 
+const express = require('express');
 const mongoose = require('mongoose');
+const router = express.Router();
 
 const { Tag } = require('../models/tag');
 const { Note } = require('../models/note');
@@ -10,20 +10,18 @@ const { Note } = require('../models/note');
 
 /* ========== GET/READ ALL ITEM ========== */
 router.get('/', (req, res, next) => {
+
 	const { searchTerm } = req.query;
-	let filter = {};
+	const filter = searchTerm ? { name: {$regex : new RegExp(searchTerm, 'i')}} : {};
 
-	if (searchTerm) {
-		const re = new RegExp(searchTerm, 'i');
-		filter = {'name':{ $regex: re }};
-	}
-
-	Tag.find(filter)
-		.sort('name')
-		.then(results => {
-			res.json(results);
+	Tag.find(filter).sort('name')
+		.then((result) => {
+			if(result) {
+				res.json(result);
+			}
+			next();
 		})
-		.catch(err => next(err));
+		.catch(next);
 });
 
 /* ========== GET/READ A SINGLE ITEM ========== */
@@ -31,99 +29,111 @@ router.get('/:id', (req, res, next) => {
 
 	const { id } = req.params;
 
-	if (!mongoose.Types.ObjectId.isValid(id)) {
+	if( !mongoose.Types.ObjectId.isValid(id) ) {
 		const err = new Error('Invalid \':id\'');
 		err.status = 400;
-		return next(err);
+		next(err);
 	}
 
 	Tag.findById(id)
 		.then(result => {
-			if(result){
+			if(result) {
 				res.json(result);
-			} else {
-				next();
 			}
+			next();
 		})
-		.catch(err => next(err));
+		.catch(next);
 });
 
 /* ========== POST/CREATE AN ITEM ========== */
 router.post('/', (req, res, next) => {
 
-	/***** Never trust users - validate input *****/
 	const { name } = req.body;
 
-	/***** Never trust users - validate input *****/
-	if (!name) {
+	if(!name) {
 		const err = new Error('Missing `name` in request body');
 		err.status = 400;
-		return next(err);
+		next(err);
 	}
 
-	const newItem = {
-		name: name
-	};
+	const newItem = { name };
 
 	Tag.create(newItem)
 		.then(result => {
-			res.location(`${req.originalUrl}/${result.id}`).status(201).json(result);
-		})
-		.catch(err => next(err));
+			if(result) {
+				res.location(`${req.originalUrl}/${result.id}`).status(201).json(result);
+			}
+			next();
+		}).catch(err => {
+			if (err.code === 11000) {
+				err = new Error(`The Tag 'name': ${name} already exists`);
+				err.status = 400;
+			}
+			next(err);
+		});
 });
 
 /* ========== PUT/UPDATE A SINGLE ITEM ========== */
 router.put('/:id', (req, res, next) => {
 
 	const { id } = req.params;
-	const { name } = req.body;
+	const{ name } = req.body;
 
-	if (!mongoose.Types.ObjectId.isValid(id)) {
-		const err = new Error('Invalid \':id\'');
-		err.status = 400;
-		return next(err);
-	}
-
-	/***** Never trust users - validate input *****/
-	if (!name) {
+	if(!name) {
 		const err = new Error('Missing `name` in request body');
 		err.status = 400;
-		return next(err);
+		next(err);
 	}
 
-	const updateItem = { name };
+	if(!mongoose.Types.ObjectId.isValid(id)){
+		const err = new Error(`Invalid '/:id' : ${id}`);
+		err.status = 400;
+		next(err);
+	}
+
+	const updateItem = { name: name };
 
 	Tag.findByIdAndUpdate(id, updateItem, {new:true})
 		.then(result => {
-			res.json(result);
-		})
-		.catch(err => next(err));
+			if(result) {
+				res.json(result);
+			}
+			next();
+		}).catch(err => {
+			if(err.code === 11000) {
+				err = new Error(`The Tag 'name': ${name} already exists`);
+				err.status = 400;
+			}
+			next(err);
+		});
 });
 
 /* ========== DELETE/REMOVE A SINGLE ITEM ========== */
+
 router.delete('/:id', (req, res, next) => {
 
 	const { id } = req.params;
 
-	if (!mongoose.Types.ObjectId.isValid(id)) {
-		const err = new Error('Invalid \':id\'');
+	if(!mongoose.Types.ObjectId.isValid(id)){
+		const err = new Error(`Invalid '/:id' : ${id}`);
 		err.status = 400;
-		return next(err);
+		next(err);
 	}
 
-	Note.updateMany({folderId : id},{$unset: {folderId: null}})
+	//no filter because we are looking at all `notes` that reference the `tag`
+	const action = { $pull : { tags:{ _id: id } } };
+
+	Note.updateMany({}, action)
 		.then(() => {
 			return Tag.findByIdAndRemove(id);
 		})
 		.then( result => {
 			if(result) {
 				res.status(204).end();
-			} else {
-				next();
 			}
+			next();
 		})
-		.catch(err => next(err));
-
+		.catch(next);
 });
 
 module.exports = router;
